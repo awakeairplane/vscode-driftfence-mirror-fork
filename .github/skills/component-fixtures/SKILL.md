@@ -7,10 +7,13 @@ description: Use when creating or updating component fixtures for screenshot tes
 
 Component fixtures render isolated UI components for visual screenshot testing via the component explorer. Fixtures live in `src/vs/workbench/test/browser/componentFixtures/` and are auto-discovered by the Vite dev server using the glob `src/**/*.fixture.ts`.
 
+Use tools `mcp_component-exp_`* to list and screenshot fixtures. If you cannot see these tools, inform the user to them on.
+
 ## Running Fixtures Locally
 
 1. Start the component explorer daemon: run the **Launch Component Explorer** task
-2. Use the `mcp_component-exp_screenshot` tool to capture screenshots programmatically
+2. Use the `mcp_component-exp_list_fixtures` tool to see all available fixtures and their URLs
+3. Use the `mcp_component-exp_screenshot` tool to capture screenshots programmatically
 
 ## File Structure
 
@@ -334,3 +337,7 @@ export default defineThemedFixtureGroup({
 ## Learnings
 
 Update this section with insights from your fixture development experience!
+
+* Do not copy the component to the fixture and modify it there. Always adapt the original component to be fixture-friendly, then render it in the fixture. This ensures the fixture tests the real component code and lifecycle, rather than a modified version that may hide bugs.
+
+* **Don't recompose child widgets in fixtures.** Never manually instantiate and add a sub-widget (e.g., a toolbar content widget) that the parent component is supposed to create. Instead, configure the parent correctly (e.g., set the right editor option, register the right provider) so the child appears through the normal code path. Manually recomposing hides integration bugs and doesn't test the real widget lifecycle.
