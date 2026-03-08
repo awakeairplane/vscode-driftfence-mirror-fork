@@ -114,10 +114,11 @@ class MarkdownPreview extends Disposable implements WebviewResourceProvider {
 			const watcher = this._register(vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(resource, '*')));
 			this._register(watcher.onDidChange(uri => {
 				if (this.isPreviewOf(uri)) {
-					// Only use the file system event when VS Code does not already know about the file
-					if (!vscode.workspace.textDocuments.some(doc => doc.uri.toString() === uri.toString())) {
-						this.refresh();
-					}
+					// Always refresh on file system changes. When the file is overwritten
+					// externally (e.g. by git, AI tools, or other processes), the text
+					// document model may not be updated immediately, so we can't rely
+					// solely on onDidChangeTextDocument to pick up the change.
+					this.refresh();
 				}
 			}));
 		}
