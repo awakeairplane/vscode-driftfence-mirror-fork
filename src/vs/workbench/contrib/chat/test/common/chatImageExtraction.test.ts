@@ -229,6 +229,170 @@ suite('extractImagesFromChatResponse', () => {
 		assert.strictEqual(result.images[2].id, 'call_last_0');
 	});
 
+	test('extracts images from pastTenseMessage URIs when readFile is provided', async () => {
+		const imageUri = URI.file('/output/result.png');
+		const toolInvocation = makeToolInvocation({
+			toolCallId: 'call_msg',
+			toolId: 'gen-tool',
+			pastTenseMessage: {
+				value: 'Generated [result.png](/output/result.png)',
+				isTrusted: true,
+				uris: {
+					'/output/result.png': imageUri.toJSON(),
+				},
+			},
+			resultDetails: undefined,
+		});
+
+		const response = makeResponse([toolInvocation]);
+		const result = await extractImagesFromChatResponse(response, fakeReadFile);
+
+		assert.strictEqual(result.images.length, 1);
+		assert.strictEqual(result.images[0].id, imageUri.toString());
+		assert.strictEqual(result.images[0].uri.toString(), imageUri.toString());
+		assert.strictEqual(result.images[0].name, 'result.png');
+		assert.strictEqual(result.images[0].mimeType, 'image/png');
+	});
+
+	test('skips non-image URIs in pastTenseMessage', async () => {
+		const codeUri = URI.file('/src/index.ts');
+		const toolInvocation = makeToolInvocation({
+			pastTenseMessage: {
+				value: 'Edited [index.ts](/src/index.ts)',
+				isTrusted: true,
+				uris: {
+					'/src/index.ts': codeUri.toJSON(),
+				},
+			},
+			resultDetails: undefined,
+		});
+
+		const response = makeResponse([toolInvocation]);
+		const result = await extractImagesFromChatResponse(response, fakeReadFile);
+		assert.strictEqual(result.images.length, 0);
+	});
+
+	test('skips pastTenseMessage URIs when readFile is not provided', async () => {
+		const imageUri = URI.file('/output/result.png');
+		const toolInvocation = makeToolInvocation({
+			pastTenseMessage: {
+				value: 'Generated [result.png](/output/result.png)',
+				isTrusted: true,
+				uris: {
+					'/output/result.png': imageUri.toJSON(),
+				},
+			},
+			resultDetails: undefined,
+		});
+
+		const response = makeResponse([toolInvocation]);
+		const result = await extractImagesFromChatResponse(response);
+		assert.strictEqual(result.images.length, 0);
+	});
+
+	test('extracts images from invocationMessage URIs when pastTenseMessage is absent', async () => {
+		const imageUri = URI.file('/output/screenshot.png');
+		const toolInvocation = makeToolInvocation({
+			pastTenseMessage: undefined,
+			invocationMessage: {
+				value: 'Taking [screenshot.png](/output/screenshot.png)',
+				isTrusted: true,
+				uris: {
+					'/output/screenshot.png': imageUri.toJSON(),
+				},
+			},
+			resultDetails: undefined,
+		});
+
+		const response = makeResponse([toolInvocation]);
+		const result = await extractImagesFromChatResponse(response, fakeReadFile);
+
+		assert.strictEqual(result.images.length, 1);
+		assert.strictEqual(result.images[0].id, imageUri.toString());
+		assert.strictEqual(result.images[0].uri.toString(), imageUri.toString());
+		assert.strictEqual(result.images[0].name, 'screenshot.png');
+		assert.strictEqual(result.images[0].mimeType, 'image/png');
+	});
+
+	test('prefers pastTenseMessage URIs over invocationMessage URIs when both present', async () => {
+		const pastUri = URI.file('/output/final.png');
+		const invocationUri = URI.file('/output/preview.png');
+		const toolInvocation = makeToolInvocation({
+			pastTenseMessage: {
+				value: 'Generated [final.png](/output/final.png)',
+				isTrusted: true,
+				uris: {
+					'/output/final.png': pastUri.toJSON(),
+				},
+			},
+			invocationMessage: {
+				value: 'Generating [preview.png](/output/preview.png)',
+				isTrusted: true,
+				uris: {
+					'/output/preview.png': invocationUri.toJSON(),
+				},
+			},
+			resultDetails: undefined,
+		});
+
+		const response = makeResponse([toolInvocation]);
+		const result = await extractImagesFromChatResponse(response, fakeReadFile);
+
+		assert.strictEqual(result.images.length, 1);
+		assert.strictEqual(result.images[0].uri.toString(), pastUri.toString());
+		assert.strictEqual(result.images[0].name, 'final.png');
+	});
+
+	test('skips invocationMessage URIs when readFile is not provided', async () => {
+		const imageUri = URI.file('/output/screenshot.png');
+		const toolInvocation = makeToolInvocation({
+			pastTenseMessage: undefined,
+			invocationMessage: {
+				value: 'Taking [screenshot.png](/output/screenshot.png)',
+				isTrusted: true,
+				uris: {
+					'/output/screenshot.png': imageUri.toJSON(),
+				},
+			},
+			resultDetails: undefined,
+		});
+
+		const response = makeResponse([toolInvocation]);
+		const result = await extractImagesFromChatResponse(response);
+		assert.strictEqual(result.images.length, 0);
+	});
+
+	test('gracefully skips inline reference when readFile fails', async () => {
+		const imageUri = URI.file('/missing/image.png');
+		const failingReadFile = async () => { throw new Error('File not found'); };
+
+		const response = makeResponse([
+			{ kind: 'inlineReference', inlineReference: imageUri, name: 'image.png' } as IChatProgressResponseContent,
+		]);
+		const result = await extractImagesFromChatResponse(response, failingReadFile);
+		assert.strictEqual(result.images.length, 0);
+	});
+
+	test('gracefully skips message URI when readFile fails', async () => {
+		const imageUri = URI.file('/missing/screenshot.png');
+		const failingReadFile = async () => { throw new Error('File not found'); };
+
+		const toolInvocation = makeToolInvocation({
+			pastTenseMessage: {
+				value: 'Generated [screenshot.png](/missing/screenshot.png)',
+				isTrusted: true,
+				uris: {
+					'/missing/screenshot.png': imageUri.toJSON(),
+				},
+			},
+			resultDetails: undefined,
+		});
+
+		const response = makeResponse([toolInvocation]);
+		const result = await extractImagesFromChatResponse(response, failingReadFile);
+		assert.strictEqual(result.images.length, 0);
+	});
+
 	test('collection id combines sessionResource and response id', async () => {
 		const sessionResource = URI.parse('chat-session://test/my-session');
 		const response = makeResponse([], { sessionResource, id: 'response-42' });

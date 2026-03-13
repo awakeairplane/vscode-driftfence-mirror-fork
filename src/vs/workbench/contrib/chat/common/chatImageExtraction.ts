@@ -42,7 +42,7 @@ export async function extractImagesFromChatResponse(
 
 	for (const item of response.response.value) {
 		if (item.kind === 'toolInvocation' || item.kind === 'toolInvocationSerialized') {
-			const images = extractImagesFromToolInvocation(item, response.sessionResource);
+			const images = await extractImagesFromToolInvocation(item, response.sessionResource, readFile);
 			allImages.push(...images);
 		} else if (item.kind === 'inlineReference' && readFile) {
 			const image = await extractImageFromInlineReference(item, readFile);
@@ -63,7 +63,11 @@ export async function extractImagesFromChatResponse(
 	};
 }
 
-function extractImagesFromToolInvocation(toolInvocation: IChatToolInvocation | IChatToolInvocationSerialized, sessionResource: URI): IChatExtractedImage[] {
+async function extractImagesFromToolInvocation(
+	toolInvocation: IChatToolInvocation | IChatToolInvocationSerialized,
+	sessionResource: URI,
+	readFile?: (uri: URI) => Promise<VSBuffer>,
+): Promise<IChatExtractedImage[]> {
 	const images: IChatExtractedImage[] = [];
 
 	const resultDetails = IChatToolInvocation.resultDetails(toolInvocation);
@@ -101,6 +105,33 @@ function extractImagesFromToolInvocation(toolInvocation: IChatToolInvocation | I
 				pushImage(output.mimeType, data, 0);
 			}
 		}
+	} else if (toolInvocation.pastTenseMessage || toolInvocation.invocationMessage) {
+		// Prefer past tense message for caption, but fall back to invocation message if past tense not yet available (e.g. for streaming responses)
+		const msg = toolInvocation.pastTenseMessage ?? toolInvocation.invocationMessage;
+		if (typeof msg !== 'string' && msg.uris && readFile) {
+			for (const uriComponents of Object.values(msg.uris)) {
+				const uri = URI.revive(uriComponents);
+				const mime = getMediaMime(uri.path);
+				if (mime?.startsWith('image/')) {
+					let data: VSBuffer;
+					try {
+						data = await readFile(uri);
+					} catch {
+						continue;
+					}
+					const name = uri.path.split('/').pop() ?? 'image';
+					images.push({
+						id: uri.toString(),
+						uri,
+						name,
+						mimeType: mime,
+						data,
+						source: localize('chatImageExtraction.toolSource', "Tool: {0}", toolInvocation.toolId),
+						caption,
+					});
+				}
+			}
+		}
 	}
 
 	return images;
@@ -129,7 +160,10 @@ async function extractImageFromInlineReference(
 		return undefined;
 	}
 
-	const data = await readFile(refUri);
+	const data = await readFile(refUri).catch(() => undefined);
+	if (!data) {
+		return undefined;
+	}
 	const name = part.name ?? refUri.path.split('/').pop() ?? 'image';
 	return {
 		id: refUri.toString(),

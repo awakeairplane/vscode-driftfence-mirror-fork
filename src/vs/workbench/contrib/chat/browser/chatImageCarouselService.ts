@@ -3,14 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { VSBuffer } from '../../../../base/common/buffer.js';
 import { getMediaMime } from '../../../../base/common/mime.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
-import { VSBuffer } from '../../../../base/common/buffer.js';
 import { localize } from '../../../../nls.js';
-import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
+import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { IImageCarouselCollection } from '../../imageCarousel/browser/imageCarouselTypes.js';
 import { extractImagesFromChatResponse } from '../common/chatImageExtraction.js';
 import { IChatResponseViewModel, isResponseVM } from '../common/model/chatViewModel.js';
 import { IChatWidgetService } from './chat.js';
@@ -36,20 +37,19 @@ export interface ICarouselImage {
 	readonly id: string;
 	readonly name: string;
 	readonly mimeType: string;
-	readonly data: Uint8Array;
+	readonly data: VSBuffer;
+	readonly uri?: URI;
+	readonly source?: string;
+	readonly caption?: string;
 }
 
 export interface ICarouselSection {
 	readonly title: string;
-	readonly images: ICarouselImage[];
+	readonly images: ReadonlyArray<ICarouselImage>;
 }
 
 export interface ICarouselCollectionArgs {
-	readonly collection: {
-		readonly id: string;
-		readonly title: string;
-		readonly sections: ICarouselSection[];
-	};
+	readonly collection: IImageCarouselCollection;
 	readonly startIndex: number;
 }
 
@@ -71,18 +71,15 @@ export interface ICarouselSingleImageArgs {
  */
 export async function collectCarouselSections(
 	responses: IChatResponseViewModel[],
-	readFile: (uri: URI) => Promise<Uint8Array>,
+	readFile: (uri: URI) => Promise<VSBuffer>,
 ): Promise<ICarouselSection[]> {
 	const sections: ICarouselSection[] = [];
 
 	for (const response of responses) {
-		const { title, images } = await extractImagesFromChatResponse(response, async uri => VSBuffer.wrap(await readFile(uri)));
+		const section = await extractImagesFromChatResponse(response, readFile);
 
-		if (images.length > 0) {
-			sections.push({
-				title,
-				images: images.map(({ id, name, mimeType, data }) => ({ id, name, mimeType, data: data.buffer }))
-			});
+		if (section.images.length > 0) {
+			sections.push(section);
 		}
 	}
 
@@ -94,7 +91,7 @@ export async function collectCarouselSections(
  * Tries URI string match, then parsed URI equality, then data buffer equality.
  */
 export function findClickedImageIndex(
-	sections: ICarouselSection[],
+	sections: ReadonlyArray<ICarouselSection>,
 	resource: URI,
 	data?: Uint8Array,
 ): number {
@@ -112,7 +109,7 @@ export function findClickedImageIndex(
 }
 
 function findImageInList(
-	images: ICarouselImage[],
+	images: ReadonlyArray<ICarouselImage>,
 	resource: URI,
 	data?: Uint8Array,
 ): number {
@@ -138,7 +135,7 @@ function findImageInList(
 	// Fall back to matching by data buffer equality
 	if (data) {
 		const wrapped = VSBuffer.wrap(data);
-		return images.findIndex(img => VSBuffer.wrap(img.data).equals(wrapped));
+		return images.findIndex(img => img.data.equals(wrapped));
 	}
 
 	return -1;
@@ -196,7 +193,7 @@ export class ChatImageCarouselService implements IChatImageCarouselService {
 		}
 
 		const responses = widget.viewModel.getItems().filter((item): item is IChatResponseViewModel => isResponseVM(item));
-		const readFile = async (uri: URI) => (await this.fileService.readFile(uri)).value.buffer;
+		const readFile = async (uri: URI) => (await this.fileService.readFile(uri)).value;
 		const sections = await collectCarouselSections(responses, readFile);
 		const clickedGlobalIndex = findClickedImageIndex(sections, resource, data);
 

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
+import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { buildCollectionArgs, buildSingleImageArgs, findClickedImageIndex, ICarouselSection } from '../../browser/chatImageCarouselService.js';
@@ -11,8 +12,8 @@ import { buildCollectionArgs, buildSingleImageArgs, findClickedImageIndex, ICaro
 suite('ChatImageCarouselService helpers', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 
-	function makeImage(id: string, name: string = 'img.png', mimeType: string = 'image/png'): { id: string; name: string; mimeType: string; data: Uint8Array } {
-		return { id, name, mimeType, data: new Uint8Array([1, 2, 3]) };
+	function makeImage(id: string, name: string = 'img.png', mimeType: string = 'image/png'): { id: string; name: string; mimeType: string; data: VSBuffer } {
+		return { id, name, mimeType, data: VSBuffer.wrap(new Uint8Array([1, 2, 3])) };
 	}
 
 	function makeSections(...imageCounts: number[]): ICarouselSection[] {
@@ -49,8 +50,8 @@ suite('ChatImageCarouselService helpers', () => {
 			const sections: ICarouselSection[] = [{
 				title: 'Section',
 				images: [
-					{ id: 'custom-id-1', name: 'a.png', mimeType: 'image/png', data: new Uint8Array([10, 20]) },
-					{ id: 'custom-id-2', name: 'b.png', mimeType: 'image/png', data: new Uint8Array([30, 40]) },
+					{ id: 'custom-id-1', name: 'a.png', mimeType: 'image/png', data: VSBuffer.wrap(new Uint8Array([10, 20])) },
+					{ id: 'custom-id-2', name: 'b.png', mimeType: 'image/png', data: VSBuffer.wrap(new Uint8Array([30, 40])) },
 				],
 			}];
 			const unknownUri = URI.from({ scheme: 'data', path: 'b.png' });
