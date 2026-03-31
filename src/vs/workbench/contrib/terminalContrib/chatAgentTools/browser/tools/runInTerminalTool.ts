@@ -9,7 +9,7 @@ import { CancellationToken, CancellationTokenSource } from '../../../../../../ba
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { CancellationError } from '../../../../../../base/common/errors.js';
 import { Event } from '../../../../../../base/common/event.js';
-import { escapeMarkdownSyntaxTokens, MarkdownString, type IMarkdownString } from '../../../../../../base/common/htmlContent.js';
+import { MarkdownString, type IMarkdownString } from '../../../../../../base/common/htmlContent.js';
 import { Disposable, DisposableStore, MutableDisposable } from '../../../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../../../base/common/map.js';
 import { getMediaMime } from '../../../../../../base/common/mime.js';
@@ -38,7 +38,7 @@ import type { ITerminalExecuteStrategy, ITerminalExecuteStrategyResult } from '.
 import { NoneExecuteStrategy } from '../executeStrategy/noneExecuteStrategy.js';
 import { RichExecuteStrategy } from '../executeStrategy/richExecuteStrategy.js';
 import { getOutput } from '../outputHelpers.js';
-import { extractCdPrefix, isFish, isPowerShell, isWindowsPowerShell, isZsh, normalizeTerminalCommandForDisplay } from '../runInTerminalHelpers.js';
+import { buildCommandDisplayText, extractCdPrefix, isFish, isPowerShell, isWindowsPowerShell, isZsh, normalizeTerminalCommandForDisplay } from '../runInTerminalHelpers.js';
 import type { ICommandLinePresenter } from './commandLinePresenter/commandLinePresenter.js';
 import { NodeCommandLinePresenter } from './commandLinePresenter/nodeCommandLinePresenter.js';
 import { PythonCommandLinePresenter } from './commandLinePresenter/pythonCommandLinePresenter.js';
@@ -108,6 +108,7 @@ function createPowerShellModelDescription(shell: string, isSandboxEnabled: boole
 		'Background Processes:',
 		'- For long-running tasks (e.g., servers), set isBackground=true',
 		'- Returns a terminal ID for checking status and runtime later',
+		`- Use ${TerminalToolId.SendToTerminal} to send commands to a background terminal`,
 		'- Use Start-Job for background PowerShell jobs',
 	];
 
@@ -184,7 +185,8 @@ Program Execution:
 
 Background Processes:
 - For long-running tasks (e.g., servers), set isBackground=true
-- Returns a terminal ID for checking status and runtime later`];
+- Returns a terminal ID for checking status and runtime later
+- Use ${TerminalToolId.SendToTerminal} to send commands to a background terminal`];
 
 	if (isSandboxEnabled) {
 		parts.push(createSandboxLines(networkDomains).join('\n'));
@@ -528,10 +530,7 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 	async handleToolStream(context: IToolInvocationStreamContext, _token: CancellationToken): Promise<IStreamedToolInvocation | undefined> {
 		const partialInput = context.rawInput as Partial<IRunInTerminalInputParams> | undefined;
 		if (partialInput && typeof partialInput === 'object' && partialInput.command) {
-			const normalizedCommand = normalizeTerminalCommandForDisplay(partialInput.command).replace(/\r\n|\r|\n/g, ' ');
-			const truncatedCommand = normalizedCommand.length > 80
-				? normalizedCommand.substring(0, 77) + '...'
-				: normalizedCommand;
+			const truncatedCommand = buildCommandDisplayText(partialInput.command);
 			const invocationMessage = partialInput.isBackground
 				? new MarkdownString(localize('runInTerminal.streaming.background', "Running `{0}` in background", truncatedCommand))
 				: new MarkdownString(localize('runInTerminal.streaming', "Running `{0}`", truncatedCommand));
@@ -853,14 +852,13 @@ export class RunInTerminalTool extends Disposable implements IToolImpl {
 		const displayCommand = rawDisplayCommand.length > 80
 			? rawDisplayCommand.substring(0, 77) + '...'
 			: rawDisplayCommand;
-		const escapedDisplayCommand = escapeMarkdownSyntaxTokens(displayCommand);
 		const invocationMessage = toolSpecificData.commandLine.isSandboxWrapped
 			? args.isBackground
-				? new MarkdownString(localize('runInTerminal.invocation.sandbox.background', "Running `{0}` in sandbox in background", escapedDisplayCommand))
-				: new MarkdownString(localize('runInTerminal.invocation.sandbox', "Running `{0}` in sandbox", escapedDisplayCommand))
+				? new MarkdownString(localize('runInTerminal.invocation.sandbox.background', "Running `{0}` in sandbox in background", displayCommand))
+				: new MarkdownString(localize('runInTerminal.invocation.sandbox', "Running `{0}` in sandbox", displayCommand))
 			: args.isBackground
-				? new MarkdownString(localize('runInTerminal.invocation.background', "Running `{0}` in background", escapedDisplayCommand))
-				: new MarkdownString(localize('runInTerminal.invocation', "Running `{0}`", escapedDisplayCommand));
+				? new MarkdownString(localize('runInTerminal.invocation.background', "Running `{0}` in background", displayCommand))
+				: new MarkdownString(localize('runInTerminal.invocation', "Running `{0}`", displayCommand));
 
 		return {
 			invocationMessage,
