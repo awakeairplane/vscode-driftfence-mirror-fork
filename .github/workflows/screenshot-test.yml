@@ -80,7 +80,7 @@ jobs:
           ./node_modules/.bin/component-explorer service:diff-commits \
             --service-url https://hediet-screenshots.azurewebsites.net \
             --base ${{ github.event.pull_request.base.sha }} \
-            --current ${{ github.event.pull_request.head.sha }} \
+            --current ${{ github.sha }} \
             --project ./test/componentFixtures/component-explorer.json \
             -o .screenshots/diff-report
             # TODO: add --change-count-days 7 once the CLI is updated with changeCount support
