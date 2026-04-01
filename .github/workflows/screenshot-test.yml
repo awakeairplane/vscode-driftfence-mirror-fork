@@ -90,7 +90,7 @@ jobs:
         id: comment
         if: github.event_name == 'pull_request'
         run: |
-          BODY=$(node build/lib/screenshotDiffReport.ts .screenshots/diff-report/report.json)
+          BODY=$(node build/lib/screenshotDiffReport.ts test/componentFixtures/.screenshots/diff-report/report.json)
           if [ -n "$BODY" ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "body<<SCREENSHOT_EOF" >> "$GITHUB_OUTPUT"
