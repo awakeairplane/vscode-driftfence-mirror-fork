@@ -93,11 +93,6 @@ function generateMarkdown(report: DiffReport): string {
 		}
 	}
 
-	if (report.changed.length === 0 && report.added.length === 0 && report.removed.length === 0) {
-		lines.push('No visual changes detected.');
-		lines.push('');
-	}
-
 	return lines.join('\n');
 }
 
@@ -107,12 +102,13 @@ if (!reportPath) {
 	process.exit(1);
 }
 
-let markdown: string;
-if (existsSync(reportPath)) {
-	const report: DiffReport = JSON.parse(readFileSync(reportPath, 'utf-8'));
-	markdown = generateMarkdown(report);
-} else {
-	markdown = '## Screenshot Changes\n\nNo visual changes detected.\n';
+if (!existsSync(reportPath)) {
+	process.exit(0);
 }
 
-process.stdout.write(`${COMMENT_MARKER}\n${markdown}`);
+const report: DiffReport = JSON.parse(readFileSync(reportPath, 'utf-8'));
+if (report.changed.length === 0 && report.added.length === 0 && report.removed.length === 0) {
+	process.exit(0);
+}
+
+process.stdout.write(`${COMMENT_MARKER}\n${generateMarkdown(report)}`);

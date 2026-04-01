@@ -137,7 +137,7 @@ export interface IAiStatsHoverOptions {
 }
 
 export function createAiStatsHover(options: IAiStatsHoverOptions) {
-	const chartViewMode = observableValue<ChartViewMode>('chartViewMode', 'days');
+	const chartViewMode = observableValue<ChartViewMode>('chartViewMode', 'sessions');
 	const aiRatePercent = options.data.aiRate.map(r => `${Math.round(r * 100)}%`);
 
 	const createToggleButton = (mode: ChartViewMode, tooltip: string, icon: ThemeIcon) => {
