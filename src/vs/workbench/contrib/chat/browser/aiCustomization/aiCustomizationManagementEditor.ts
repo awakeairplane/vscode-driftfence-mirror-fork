@@ -394,6 +394,23 @@ export class AICustomizationManagementEditor extends EditorPane {
 
 		this.createSplitView();
 		this.updateStyles();
+
+		// Intercept mouse back/forward buttons (3/4) to navigate within the
+		// customizations editor instead of the global editor history.
+		this.editorDisposables.add(DOM.addDisposableListener(this.container, DOM.EventType.MOUSE_DOWN, (e: MouseEvent) => {
+			if (e.button === 3 && this.viewMode !== 'list') {
+				DOM.EventHelper.stop(e, true);
+				this.handleGoBack();
+			} else if (e.button === 4) {
+				// Prevent forward from escaping into the editor history
+				DOM.EventHelper.stop(e, true);
+			}
+		}));
+		this.editorDisposables.add(DOM.addDisposableListener(this.container, DOM.EventType.MOUSE_UP, (e: MouseEvent) => {
+			if (e.button === 3 || e.button === 4) {
+				DOM.EventHelper.stop(e, true);
+			}
+		}));
 	}
 
 	private createSplitView(): void {
@@ -1479,6 +1496,24 @@ export class AICustomizationManagementEditor extends EditorPane {
 			if (isEqual(this.currentEditingUri, uri)) {
 				this.goBackToList();
 			}
+		}
+	}
+
+	/**
+	 * Handles the back action for the internal navigation of this editor.
+	 * Called by mouse back button or keyboard shortcut interception.
+	 */
+	private handleGoBack(): void {
+		switch (this.viewMode) {
+			case 'editor':
+				this.goBackToList();
+				break;
+			case 'mcpDetail':
+				this.goBackFromMcpDetail();
+				break;
+			case 'pluginDetail':
+				this.goBackFromPluginDetail();
+				break;
 		}
 	}
 
