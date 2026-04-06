@@ -698,7 +698,8 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 
 		// Convert supportedTypes whitelist to hiddenSections blacklist.
 		// Sections not in the supported list are hidden. When supportedTypes
-		// is omitted, all sections are shown.
+		// is omitted, all prompt-based sections are shown but MCP Servers and
+		// Models are hidden since they are not provider-controlled.
 		const typeToSection: Record<string, string> = {
 			'agent': AICustomizationManagementSection.Agents,
 			'skill': AICustomizationManagementSection.Skills,
@@ -707,7 +708,10 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 			'hook': AICustomizationManagementSection.Hooks,
 			'plugins': AICustomizationManagementSection.Plugins,
 		};
-		let hiddenSections: string[] | undefined;
+		// Non-provider sections are always hidden for external harnesses
+		// because they source their data from services, not the provider.
+		const nonProviderSections = [AICustomizationManagementSection.McpServers, AICustomizationManagementSection.Models];
+		let hiddenSections: string[];
 		if (metadata.supportedTypes) {
 			const supportedSections = new Set<string>();
 			for (const t of metadata.supportedTypes) {
@@ -716,7 +720,12 @@ export class MainThreadChatAgents2 extends Disposable implements MainThreadChatA
 					supportedSections.add(section);
 				}
 			}
-			hiddenSections = Object.values(typeToSection).filter(section => !supportedSections.has(section));
+			hiddenSections = [
+				...Object.values(typeToSection).filter(section => !supportedSections.has(section)),
+				...nonProviderSections,
+			];
+		} else {
+			hiddenSections = nonProviderSections;
 		}
 
 		const descriptor: IHarnessDescriptor = {
