@@ -31,7 +31,7 @@ import { WorkbenchTable } from '../../../../platform/list/browser/listService.js
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
-import { editorBackground } from '../../../../platform/theme/common/colorRegistry.js';
+import { asCssVariable, editorBackground, textLinkForeground } from '../../../../platform/theme/common/colorRegistry.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
@@ -855,7 +855,7 @@ class InstructionRenderer extends Disposable implements ITableRenderer<IDisassem
 		templateData.currentElement.element = element;
 		const instruction = element.instruction;
 		templateData.sourcecode.innerText = '';
-		const symbolPrefix = instruction.symbol ? instruction.symbol + ':\n' : '';
+		const hasSymbol = !!instruction.symbol;
 		const sb = new StringBuilder(1000);
 
 		if (this._disassemblyView.isSourceCodeRender && element.showSourceLocation && instruction.location?.path && instruction.line !== undefined) {
@@ -889,14 +889,17 @@ class InstructionRenderer extends Disposable implements ITableRenderer<IDisassem
 						break;
 					}
 
-					templateData.sourcecode.innerText = symbolPrefix + sourceSB.build();
+					templateData.sourcecode.innerText = '';
+					this._renderSymbolLabel(templateData.sourcecode, instruction.symbol);
+					templateData.sourcecode.appendChild(document.createTextNode(sourceSB.build()));
 				}
 			}
 		}
 
 		// Show symbol label even when source code rendering is disabled
-		if (symbolPrefix && !templateData.sourcecode.innerText) {
-			templateData.sourcecode.innerText = instruction.symbol + ':';
+		if (hasSymbol && !templateData.sourcecode.innerText && templateData.sourcecode.childElementCount === 0) {
+			templateData.sourcecode.innerText = '';
+			this._renderSymbolLabel(templateData.sourcecode, instruction.symbol);
 		}
 
 		let spacesToAppend = 10;
@@ -975,6 +978,18 @@ class InstructionRenderer extends Disposable implements ITableRenderer<IDisassem
 				}
 			});
 		}
+	}
+
+	private _renderSymbolLabel(container: HTMLElement, symbol: string | undefined): void {
+		if (!symbol) {
+			return;
+		}
+		const symbolSpan = document.createElement('span');
+		symbolSpan.style.color = asCssVariable(textLinkForeground);
+		symbolSpan.style.fontWeight = 'bold';
+		symbolSpan.textContent = symbol + ':';
+		container.appendChild(symbolSpan);
+		container.appendChild(document.createTextNode('\n'));
 	}
 
 	private getUriFromSource(instruction: DebugProtocol.DisassembledInstruction): URI {
