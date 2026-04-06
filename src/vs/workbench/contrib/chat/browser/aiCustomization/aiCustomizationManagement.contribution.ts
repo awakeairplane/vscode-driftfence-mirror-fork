@@ -23,6 +23,8 @@ import { IDialogService } from '../../../../../platform/dialogs/common/dialogs.j
 import { FileSystemProviderCapabilities, IFileService } from '../../../../../platform/files/common/files.js';
 import { SyncDescriptor } from '../../../../../platform/instantiation/common/descriptors.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
+import { KeybindingWeight } from '../../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { KeyCode, KeyMod } from '../../../../../base/common/keyCodes.js';
 import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../../browser/editor.js';
@@ -49,6 +51,7 @@ import {
 	AICustomizationManagementItemMenuId,
 	AICustomizationManagementSection,
 	BUILTIN_STORAGE,
+	CONTEXT_AI_CUSTOMIZATION_CAN_GO_BACK,
 } from './aiCustomizationManagement.js';
 import { AICustomizationManagementEditor } from './aiCustomizationManagementEditor.js';
 import { AICustomizationManagementEditorInput } from './aiCustomizationManagementEditorInput.js';
@@ -648,6 +651,33 @@ MenuRegistry.appendMenuItem(AICustomizationManagementItemMenuId, {
 		ContextKeyExpr.equals(AI_CUSTOMIZATION_ITEM_STORAGE_KEY, BUILTIN_STORAGE),
 		ContextKeyExpr.equals(AI_CUSTOMIZATION_ITEM_TYPE_KEY, PromptsType.skill),
 	),
+});
+
+// Navigate back within the customizations editor when in a detail/editor view.
+// Overrides the global workbench.action.navigateBack with higher weight so that
+// mouse-back, keyboard shortcuts, and the Go Back command all navigate within
+// the editor instead of going to the previous editor in history.
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'aiCustomizationManagement.navigateBack',
+			title: localize2('navigateBackInCustomizations', "Go Back"),
+			keybinding: {
+				weight: KeybindingWeight.WorkbenchContrib + 1,
+				when: CONTEXT_AI_CUSTOMIZATION_CAN_GO_BACK,
+				win: { primary: KeyMod.Alt | KeyCode.LeftArrow, secondary: [KeyCode.BrowserBack] },
+				mac: { primary: KeyMod.WinCtrl | KeyCode.Minus, secondary: [KeyCode.BrowserBack] },
+				linux: { primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.Minus, secondary: [KeyCode.BrowserBack] },
+			},
+		});
+	}
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const editorService = accessor.get(IEditorService);
+		const activeEditor = editorService.activeEditorPane;
+		if (activeEditor instanceof AICustomizationManagementEditor) {
+			activeEditor.handleGoBack();
+		}
+	}
 });
 
 //#endregion

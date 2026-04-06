@@ -64,6 +64,16 @@ export const CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_HARNESS = new RawContextKey<str
 );
 
 /**
+ * Context key set when the Chat Customizations editor can navigate back
+ * (i.e. is in a detail or embedded editor view, not the main list).
+ */
+export const CONTEXT_AI_CUSTOMIZATION_CAN_GO_BACK = new RawContextKey<boolean>(
+	'aiCustomizationCanGoBack',
+	false,
+	localize('aiCustomizationCanGoBack', "Whether the Chat Customizations editor can navigate back to the list view")
+);
+
+/**
  * Menu ID for the AI Customization Management Editor title bar actions.
  */
 export const AICustomizationManagementTitleMenuId = MenuId.for('AICustomizationManagementEditorTitle');

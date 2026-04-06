@@ -44,6 +44,7 @@ import {
 	AICustomizationManagementSection,
 	AICustomizationPromptsStorage,
 	BUILTIN_STORAGE,
+	CONTEXT_AI_CUSTOMIZATION_CAN_GO_BACK,
 	CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_EDITOR,
 	CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_SECTION,
 	CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_HARNESS,
@@ -317,6 +318,7 @@ export class AICustomizationManagementEditor extends EditorPane {
 	private readonly inEditorContextKey: IContextKey<boolean>;
 	private readonly sectionContextKey: IContextKey<string>;
 	private readonly harnessContextKey: IContextKey<string>;
+	private readonly canGoBackContextKey: IContextKey<boolean>;
 
 	constructor(
 		group: IEditorGroup,
@@ -346,6 +348,7 @@ export class AICustomizationManagementEditor extends EditorPane {
 		this.inEditorContextKey = CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_EDITOR.bindTo(contextKeyService);
 		this.sectionContextKey = CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_SECTION.bindTo(contextKeyService);
 		this.harnessContextKey = CONTEXT_AI_CUSTOMIZATION_MANAGEMENT_HARNESS.bindTo(contextKeyService);
+		this.canGoBackContextKey = CONTEXT_AI_CUSTOMIZATION_CAN_GO_BACK.bindTo(contextKeyService);
 
 		// Track workspace changes for embedded editor
 		this._register(autorun(reader => {
@@ -985,6 +988,9 @@ export class AICustomizationManagementEditor extends EditorPane {
 		const isMcpDetailMode = this.viewMode === 'mcpDetail';
 		const isPluginDetailMode = this.viewMode === 'pluginDetail';
 		const isDetailMode = isMcpDetailMode || isPluginDetailMode;
+
+		// Update context key so the keybinding-based back action fires
+		this.canGoBackContextKey.set(isEditorMode || isDetailMode);
 		const isPromptsSection = this.isPromptsSection(this.selectedSection);
 		const isModelsSection = this.selectedSection === AICustomizationManagementSection.Models;
 		const isMcpSection = this.selectedSection === AICustomizationManagementSection.McpServers;
@@ -1479,6 +1485,25 @@ export class AICustomizationManagementEditor extends EditorPane {
 			if (isEqual(this.currentEditingUri, uri)) {
 				this.goBackToList();
 			}
+		}
+	}
+
+	/**
+	 * Handles the back action for the internal navigation of this editor.
+	 * Called by the navigate-back keybinding override when the editor
+	 * is in a detail or embedded editor view.
+	 */
+	public handleGoBack(): void {
+		switch (this.viewMode) {
+			case 'editor':
+				this.goBackToList();
+				break;
+			case 'mcpDetail':
+				this.goBackFromMcpDetail();
+				break;
+			case 'pluginDetail':
+				this.goBackFromPluginDetail();
+				break;
 		}
 	}
 
