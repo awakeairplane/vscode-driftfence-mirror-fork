@@ -573,6 +573,12 @@ export class AICustomizationManagementEditor extends EditorPane {
 			this.rebuildVisibleSections();
 			this.ensureHarnessDropdown();
 			this.updateHarnessDropdown();
+			// Reset counts to zero immediately on harness switch to prevent
+			// stale counts from the previous harness flashing before the async
+			// count refresh completes.
+			for (const section of this.sections) {
+				this.updateSectionCount(section.id, 0);
+			}
 			this.refreshAllPromptsSectionCounts();
 		}));
 
