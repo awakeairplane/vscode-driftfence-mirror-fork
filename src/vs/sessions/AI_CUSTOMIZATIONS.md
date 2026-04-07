@@ -76,8 +76,8 @@ Storage answers "where did this come from?"; harness answers "who consumes it?".
 The service is defined in `common/customizationHarnessService.ts` which also provides:
 - **`CustomizationHarnessServiceBase`** — reusable base class handling active-harness state, the observable list, and `getStorageSourceFilter` dispatch.
 - **`ISectionOverride`** — per-section UI customization: `commandId` (command invocation), `rootFile` + `label` (root-file creation), `typeLabel` (custom type name), `fileExtension` (override default), `rootFileShortcuts` (dropdown shortcuts).
-- **Factory functions** — `createVSCodeHarnessDescriptor`, `createCliHarnessDescriptor`, `createClaudeHarnessDescriptor`. The VS Code harness receives `[PromptsStorage.extension, BUILTIN_STORAGE]` as extras; CLI and Claude in core receive `[]` (no extension source). Sessions CLI receives `[BUILTIN_STORAGE]`.
-- **Well-known root helpers** — `getCliUserRoots(userHome)` and `getClaudeUserRoots(userHome)` centralize the `~/.copilot`, `~/.claude`, `~/.agents` path knowledge.
+- **Factory functions** — `createVSCodeHarnessDescriptor`, `createCliHarnessDescriptor`. The VS Code harness receives `[PromptsStorage.extension, BUILTIN_STORAGE]` as extras; Sessions CLI receives `[BUILTIN_STORAGE]`.
+- **Well-known root helpers** — `getCliUserRoots(userHome)` centralizes the `~/.copilot`, `~/.claude`, `~/.agents` path knowledge.
 - **Filter helpers** — `matchesWorkspaceSubpath()` for segment-safe subpath matching; `matchesInstructionFileFilter()` for filename/path-prefix pattern matching.
 
 Available harnesses:
@@ -86,9 +86,8 @@ Available harnesses:
 |---------|-------|-------------|
 | `vscode` | Local | Shows all storage sources (default in core) |
 | `cli` | Copilot CLI | Restricts user roots to `~/.copilot`, `~/.claude`, `~/.agents` |
-| `claude` | Claude | Restricts user roots to `~/.claude`; hides Prompts + Plugins sections |
 
-In core VS Code, all three harnesses are registered but CLI and Claude only appear when their respective agents are registered (`requiredAgentId` checked via `IChatAgentService`). VS Code is the default.
+In core VS Code, only the Local harness is registered statically. Additional harnesses (e.g. Copilot CLI, Claude) are contributed by extensions via the provider API.
 In sessions, only CLI is registered (single harness, toggle bar hidden).
 
 ### IHarnessDescriptor
