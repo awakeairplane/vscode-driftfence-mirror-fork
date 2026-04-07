@@ -978,6 +978,10 @@
 	padding: 2px 10px;
 }
 
+.mcp-gallery-item .mcp-gallery-install-button:focus-visible {
+	outline-offset: -1px;
+}
+
 /* Embedded Editor View */
 .ai-customization-management-editor .editor-content-container {
 	height: 100%;
