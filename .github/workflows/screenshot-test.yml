@@ -58,6 +58,9 @@ jobs:
       - name: Capture screenshots
         run: ./node_modules/.bin/component-explorer render --project ./test/componentFixtures/component-explorer.json
 
+      - name: Check for fixture render errors
+        run: node build/lib/screenshotCheckErrors.ts test/componentFixtures/.screenshots/current/manifest.json
+
       - name: Check blocks-ci screenshots
         id: blocks-ci
         run: |
