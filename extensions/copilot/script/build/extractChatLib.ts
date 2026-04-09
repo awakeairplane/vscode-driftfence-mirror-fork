@@ -694,6 +694,12 @@ class ChatLibExtractor {
 		const rootPackageJson = JSON.parse(await fs.promises.readFile(rootPackageJsonPath, 'utf-8'));
 		const chatLibPackageJson = JSON.parse(await fs.promises.readFile(chatLibPackageJsonPath, 'utf-8'));
 
+		// Sync version from root package.json
+		if (rootPackageJson.version && chatLibPackageJson.version !== rootPackageJson.version) {
+			console.log(`  Updated version: ${chatLibPackageJson.version} → ${rootPackageJson.version}`);
+			chatLibPackageJson.version = rootPackageJson.version;
+		}
+
 		// Combine all dependencies and devDependencies from root
 		const rootDependencies = {
 			...(rootPackageJson.dependencies || {}),

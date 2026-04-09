@@ -3,9 +3,6 @@ trigger:
   branches:
     include:
       - main
-  tags:
-    include:
-      - v*
 
 pr: [main]
 
@@ -16,6 +13,19 @@ resources:
       name: microsoft/vscode-engineering
       ref: main
       endpoint: Monaco
+  pipelines:
+    - pipeline: pre-release
+      source: 'copilot-chat (pre-release)'
+      trigger:
+        branches:
+          include:
+            - main
+    - pipeline: stable
+      source: 'copilot-chat (stable)'
+      trigger:
+        branches:
+          include:
+            - main
 
 parameters:
   - name: nextVersion
@@ -71,17 +81,15 @@ extends:
           - script: npm test
             displayName: 🧪 Run chat-lib tests
             workingDirectory: extensions/copilot/chat-lib
-        # Tag-triggered: date-stamped patch (e.g., v0.40.2026031601) → publish to next
-        ${{ if and(startsWith(variables['Build.SourceBranch'], 'refs/tags/v'), gt(length(variables['Build.SourceBranchName']), 13)) }}:
+        # Triggered by pre-release pipeline → publish to next
+        ${{ if eq(variables['resources.pipeline.pre-release.pipelineName'], 'copilot-chat (pre-release)') }}:
           publishPackage: true
           publishRequiresApproval: false
-          nextVersion: ${{ replace(variables['Build.SourceBranchName'], 'v', '') }}
           tag: next
-        # Tag-triggered: short patch (e.g., v0.39.1) → publish to latest
-        ${{ elseif startsWith(variables['Build.SourceBranch'], 'refs/tags/v') }}:
+        # Triggered by stable pipeline → publish to latest
+        ${{ elseif eq(variables['resources.pipeline.stable.pipelineName'], 'copilot-chat (stable)') }}:
           publishPackage: true
           publishRequiresApproval: false
-          nextVersion: ${{ replace(variables['Build.SourceBranchName'], 'v', '') }}
         ${{ elseif eq(parameters.nextVersion, 'none') }}:
           publishPackage: false
         # Manual prerelease → publish to next
