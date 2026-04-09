@@ -12,11 +12,16 @@ import { localize } from '../../../../nls.js';
 import { IActionWidgetService } from '../../../../platform/actionWidget/browser/actionWidget.js';
 import { ActionListItemKind, IActionListDelegate, IActionListItem } from '../../../../platform/actionWidget/browser/actionList.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { ISessionsManagementService } from '../../sessions/browser/sessionsManagementService.js';
-import { ISessionsProvidersService } from '../../sessions/browser/sessionsProvidersService.js';
+import { ISessionsManagementService } from '../../../services/sessions/common/sessionsManagement.js';
+import { ISessionsProvidersService } from '../../../services/sessions/browser/sessionsProvidersService.js';
 import { CopilotChatSessionsProvider } from './copilotChatSessionsProvider.js';
 
 export type IsolationMode = 'worktree' | 'workspace';
+
+interface IIsolationPickerItem {
+	readonly mode: IsolationMode;
+	readonly checked?: boolean;
+}
 
 /**
  * A self-contained widget for selecting the isolation mode.
@@ -114,31 +119,32 @@ export class IsolationPicker extends Disposable {
 			return;
 		}
 
-		const items: IActionListItem<IsolationMode>[] = [
+		const currentIsolationMode = this._getSessionIsolationMode();
+		const items: IActionListItem<IIsolationPickerItem>[] = [
 			{
 				kind: ActionListItemKind.Action,
 				label: localize('isolationMode.worktree', "Worktree"),
 				group: { title: '', icon: Codicon.worktree },
-				item: 'worktree',
+				item: { mode: 'worktree', checked: currentIsolationMode === 'worktree' || undefined },
 			},
 			{
 				kind: ActionListItemKind.Action,
 				label: localize('isolationMode.folder', "Folder"),
 				group: { title: '', icon: Codicon.folder },
-				item: 'workspace',
+				item: { mode: 'workspace', checked: currentIsolationMode === 'workspace' || undefined },
 			},
 		];
 
 		const triggerElement = this._triggerElement;
-		const delegate: IActionListDelegate<IsolationMode> = {
-			onSelect: (mode) => {
+		const delegate: IActionListDelegate<IIsolationPickerItem> = {
+			onSelect: ({ mode }) => {
 				this.actionWidgetService.hide();
 				this._setModeOnSession(mode);
 			},
 			onHide: () => { triggerElement.focus(); },
 		};
 
-		this.actionWidgetService.show<IsolationMode>(
+		this.actionWidgetService.show<IIsolationPickerItem>(
 			'isolationPicker',
 			false,
 			items,
@@ -160,7 +166,7 @@ export class IsolationPicker extends Disposable {
 	}
 
 	private _updateTriggerLabel(): void {
-		if (!this._triggerElement || !this._slotElement) {
+		if (!this._triggerElement) {
 			return;
 		}
 
@@ -187,11 +193,9 @@ export class IsolationPicker extends Disposable {
 		labelSpan.textContent = modeLabel;
 		dom.append(this._triggerElement, renderIcon(Codicon.chevronDown));
 
-		const visible = this._isolationOptionEnabled && this._hasGitRepo;
-		dom.setVisibility(visible, this._slotElement);
-		this._slotElement.classList.toggle('disabled', false);
-		this._triggerElement.setAttribute('aria-hidden', String(!visible));
-		this._triggerElement.setAttribute('aria-disabled', String(!visible));
-		this._triggerElement.tabIndex = visible ? 0 : -1;
+		const isDisabled = !this._hasGitRepo;
+		this._slotElement?.classList.toggle('disabled', isDisabled);
+		this._triggerElement.setAttribute('aria-disabled', String(isDisabled));
+		this._triggerElement.tabIndex = isDisabled ? -1 : 0;
 	}
 }
