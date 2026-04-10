@@ -254,10 +254,12 @@ export class LinuxExternalTerminalService extends ExternalTerminalService implem
 					return;
 				}
 
-				const termArgs: string[] = [];
+				const termArgs: string[] = exec.split(/(?<!\\)\s/);
+				const cmd: string = termArgs.shift() ?? "";
+
 				//termArgs.push('--title');
 				//termArgs.push(`"${TERMINAL_TITLE}"`);
-				if (exec.indexOf('gnome-terminal') >= 0) {
+				if (cmd.indexOf('gnome-terminal') >= 0) {
 					termArgs.push('-x');
 				} else {
 					termArgs.push('-e');
@@ -269,7 +271,7 @@ export class LinuxExternalTerminalService extends ExternalTerminalService implem
 				termArgs.push(`''${bashCommand}''`);	// wrapping argument in two sets of ' because node is so "friendly" that it removes one set...
 
 
-				LinuxExternalTerminalService.spawnTerminalWithEnv(exec, termArgs, dir, envVars, resolve, reject);
+				LinuxExternalTerminalService.spawnTerminalWithEnv(cmd, termArgs, dir, envVars, resolve, reject);
 			});
 		});
 	}
