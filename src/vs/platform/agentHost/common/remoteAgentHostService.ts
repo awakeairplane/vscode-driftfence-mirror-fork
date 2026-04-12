@@ -7,18 +7,66 @@ import { Event } from '../../../base/common/event.js';
 import { connectionTokenQueryName } from '../../../base/common/network.js';
 import { createDecorator } from '../../instantiation/common/instantiation.js';
 import type { IAgentConnection } from './agentService.js';
+import { TUNNEL_ADDRESS_PREFIX } from './tunnelAgentHost.js';
+
+/** Connection status for a remote agent host. */
+export const enum RemoteAgentHostConnectionStatus {
+	Connected = 'connected',
+	Connecting = 'connecting',
+	Disconnected = 'disconnected',
+}
 
 /** Configuration key for the list of remote agent host addresses. */
 export const RemoteAgentHostsSettingId = 'chat.remoteAgentHosts';
 
 /** Configuration key to enable remote agent host connections. */
-export const RemoteAgentHostsEnabledSettingId = 'chat.remoteAgentHosts.enabled';
+export const RemoteAgentHostsEnabledSettingId = 'chat.remoteAgentHostsEnabled';
+
+export const enum RemoteAgentHostEntryType {
+	WebSocket = 'websocket',
+	SSH = 'ssh',
+	Tunnel = 'tunnel',
+}
+
+export interface IRemoteAgentHostWebSocketConnection {
+	readonly type: RemoteAgentHostEntryType.WebSocket;
+	readonly address: string;
+}
+
+export interface IRemoteAgentHostSSHConnection {
+	readonly type: RemoteAgentHostEntryType.SSH;
+	readonly address: string;
+	/** SSH config host alias — if set, the tunnel is re-established on startup. */
+	readonly sshConfigHost?: string;
+}
+
+export interface IRemoteAgentHostTunnelConnection {
+	readonly type: RemoteAgentHostEntryType.Tunnel;
+	/** Dev tunnel ID. */
+	readonly tunnelId: string;
+	/** Dev tunnel cluster region. */
+	readonly clusterId: string;
+	/** Auth provider used to connect to this tunnel. */
+	readonly authProvider?: 'github' | 'microsoft';
+}
+
+export type RemoteAgentHostConnection = IRemoteAgentHostWebSocketConnection | IRemoteAgentHostSSHConnection | IRemoteAgentHostTunnelConnection;
 
 /** An entry in the {@link RemoteAgentHostsSettingId} setting. */
 export interface IRemoteAgentHostEntry {
-	readonly address: string;
 	readonly name: string;
 	readonly connectionToken?: string;
+	readonly connection: RemoteAgentHostConnection;
+}
+
+export function getEntryAddress(entry: IRemoteAgentHostEntry): string {
+	switch (entry.connection.type) {
+		case RemoteAgentHostEntryType.WebSocket:
+		case RemoteAgentHostEntryType.SSH:
+			return entry.connection.address;
+		case RemoteAgentHostEntryType.Tunnel:
+			return `${TUNNEL_ADDRESS_PREFIX}${entry.connection.tunnelId}`;
+	}
 }
 
 export const enum RemoteAgentHostInputValidationError {
@@ -69,6 +117,26 @@ export interface IRemoteAgentHostService {
 	 * to that host is available.
 	 */
 	addRemoteAgentHost(entry: IRemoteAgentHostEntry): Promise<IRemoteAgentHostConnectionInfo>;
+
+	/**
+	 * Removes a configured remote host entry by address.
+	 * Disconnects any active connection and removes the entry from settings.
+	 */
+	removeRemoteAgentHost(address: string): Promise<void>;
+
+	/**
+	 * Forcefully reconnect to a configured remote host.
+	 * Tears down any existing connection and starts a fresh connect attempt
+	 * with reset backoff.
+	 */
+	reconnect(address: string): void;
+
+	/**
+	 * Register a pre-connected agent connection.
+	 * Used by the SSH and tunnel services to inject relay-backed connections
+	 * without going through the WebSocket connect flow.
+	 */
+	addSSHConnection(entry: IRemoteAgentHostEntry, connection: IAgentConnection): Promise<IRemoteAgentHostConnectionInfo>;
 }
 
 /** Metadata about a single remote connection. */
@@ -77,6 +145,7 @@ export interface IRemoteAgentHostConnectionInfo {
 	readonly name: string;
 	readonly clientId: string;
 	readonly defaultDirectory?: string;
+	readonly status: RemoteAgentHostConnectionStatus;
 }
 
 export class NullRemoteAgentHostService implements IRemoteAgentHostService {
@@ -88,17 +157,11 @@ export class NullRemoteAgentHostService implements IRemoteAgentHostService {
 	async addRemoteAgentHost(): Promise<IRemoteAgentHostConnectionInfo> {
 		throw new Error('Remote agent host connections are not supported in this environment.');
 	}
-}
-
-/**
- * Strips the redundant `ws://` scheme from an address. The transport layer
- * already defaults to `ws://`, so only `wss://` needs to be preserved.
- */
-export function normalizeRemoteAgentHostAddress(address: string): string {
-	if (address.startsWith('ws://')) {
-		return address.slice('ws://'.length);
+	async removeRemoteAgentHost(_address: string): Promise<void> { }
+	reconnect(_address: string): void { }
+	async addSSHConnection(): Promise<IRemoteAgentHostConnectionInfo> {
+		throw new Error('Remote agent host connections are not supported in this environment.');
 	}
-	return address;
 }
 
 export function parseRemoteAgentHostInput(input: string): RemoteAgentHostInputParseResult {
@@ -170,4 +233,54 @@ function formatRemoteAgentHostAddress(url: URL, protocol: 'ws:' | 'wss:' | undef
 	const query = url.search;
 	const base = protocol ? `${protocol}//${url.host}` : url.host;
 	return `${base}${path}${query}`;
+}
+
+/** Raw shape of entries persisted in the {@link RemoteAgentHostsSettingId} setting. */
+export interface IRawRemoteAgentHostEntry {
+	readonly address: string;
+	readonly name: string;
+	readonly connectionToken?: string;
+	readonly sshConfigHost?: string;
+}
+
+export function rawEntryToEntry(raw: IRawRemoteAgentHostEntry): IRemoteAgentHostEntry | undefined {
+	if (raw.sshConfigHost) {
+		return {
+			name: raw.name,
+			connectionToken: raw.connectionToken,
+			connection: {
+				type: RemoteAgentHostEntryType.SSH,
+				address: raw.address,
+				sshConfigHost: raw.sshConfigHost,
+			},
+		};
+	}
+	return {
+		name: raw.name,
+		connectionToken: raw.connectionToken,
+		connection: {
+			type: RemoteAgentHostEntryType.WebSocket,
+			address: raw.address,
+		},
+	};
+}
+
+export function entryToRawEntry(entry: IRemoteAgentHostEntry): IRawRemoteAgentHostEntry | undefined {
+	switch (entry.connection.type) {
+		case RemoteAgentHostEntryType.SSH:
+			return {
+				address: entry.connection.address,
+				name: entry.name,
+				connectionToken: entry.connectionToken,
+				sshConfigHost: entry.connection.sshConfigHost,
+			};
+		case RemoteAgentHostEntryType.WebSocket:
+			return {
+				address: entry.connection.address,
+				name: entry.name,
+				connectionToken: entry.connectionToken,
+			};
+		case RemoteAgentHostEntryType.Tunnel:
+			return undefined;
+	}
 }
