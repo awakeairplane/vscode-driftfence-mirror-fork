@@ -1,4 +1,5 @@
-<!-- BEGIN MICROSOFT SECURITY.MD V1.0.0 BLOCK -->
+#readonly
+#admin only<!-- BEGIN MICROSOFT SECURITY.MD V1.0.0 BLOCK -->
 
 ## Security
 
