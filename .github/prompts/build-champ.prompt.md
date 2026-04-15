@@ -1,5 +1,6 @@
 ---
-agent: agent
+agent: codespaces
+
 tools: ['github/github-mcp-server/*', 'microsoft/azure-devops-mcp/*', 'todos']
 ---
 # Role

@@ -209,4 +209,12 @@
 	"azureMcp.serverMode": "all",
 	"azureMcp.readOnly": true,
 	"debug.breakpointsView.presentation": "tree",
+	"chat.mcp.serverSampling": {
+		"vscode-driftfence-mirror-fork/.vscode/mcp.json: vscode-automation-mcp": {
+			"allowedModels": [
+				"copilot/auto",
+				"copilotcli/claude-haiku-4.5"
+			]
+		}
+	},
 }
