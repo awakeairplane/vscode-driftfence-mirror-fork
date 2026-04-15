@@ -1,0 +1,3 @@
+$ git remote -v
+> origin  git@github.com:OWNER/REPOSITORY.git (fetch)
+> origin  git@github.com:OWNER/REPOSITORY.git (push)
