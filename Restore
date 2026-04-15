@@ -1,0 +1,2 @@
+restore
+copilot -p "Revert the last commit" --allow-all-tools
